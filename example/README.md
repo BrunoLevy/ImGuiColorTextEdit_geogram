@@ -2,7 +2,7 @@
 
 This directory contains a full example on how to use the TextEditor widget.
 It implements a poor man's editor complete with menubar, statusbar,
-file selectors and status tracking.
+file selectors, status tracking and autocomplete.
 
 ![Screenshot](screenshot.png)
 

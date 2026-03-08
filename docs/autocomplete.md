@@ -30,10 +30,10 @@ and is defined as (please note defaults):
 class AutoCompleteConfig {
 public:
 	// specifies whether typing by the user triggers autocomplete
-	bool triggersOnTyping = true;
+	bool triggerOnTyping = true;
 
 	// specifies whether the specified shortcut triggers autocomplete
-	bool triggersOnShortcut = true;
+	bool triggerOnShortcut = true;
 
 	// specifies whether typing (or shortcut) in comments or strings triggers autocomplete
 	bool triggerInComments = false;
@@ -44,7 +44,7 @@ public:
 #if __APPLE__
 	ImGuiKeyChord triggerShortcut = ImGuiMod_Super | ImGuiKey_Space;
 #else
-	ImGuiKeyChord triggerShortcut = ImGuiMod_Ctrl || ImGuiKey_Space;
+	ImGuiKeyChord triggerShortcut = ImGuiMod_Ctrl | ImGuiKey_Space;
 #endif
 
 	// see if single suggestions are automatically inserted
@@ -58,7 +58,7 @@ public:
 	// suggestion list is not cleared by editor between callbacks
 	// callback is called during the rendering process (so don't take too long)
 
-	// if it does takes too long, application should do search in separate thread and
+	// if it takes too long, applications should do search in separate thread and
 	// use API to report results (see SetAutoCompleteSuggestions)
 	std::function<void(AutoCompleteState&)> callback;
 
@@ -100,6 +100,7 @@ public:
 	// the editor does not automatically include language specific keywords or identifiers in the suggestion list
 	// this is left to the application so it can be context specific in case a language server is used
 	// a pointer to the current language definition is provided so callbacks have easy access
+	std::vector<std::string> suggestions;
 };
 ```
 
