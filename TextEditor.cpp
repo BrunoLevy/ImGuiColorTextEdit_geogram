@@ -2355,11 +2355,11 @@ TextEditor::Palette TextEditor::defaultPalette = TextEditor::GetDarkPalette();
 //
 
 TextEditor::Coordinate TextEditor::Cursor::adjustCoordinateForInsert(Coordinate coordinate, Coordinate insertStart, Coordinate insertEnd) {
-	coordinate.line += insertEnd.line - insertStart.line;
-
-	if (end.line == coordinate.line) {
+	if (insertStart.line == coordinate.line) {
 		coordinate.column += insertEnd.column - insertStart.column;
 	}
+
+	coordinate.line += insertEnd.line - insertStart.line;
 
 	return coordinate;
 }
