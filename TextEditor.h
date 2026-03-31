@@ -418,7 +418,7 @@ public:
 	};
 
 	// language support
-	class Language {
+	class GEOGRAM_GFX_API Language {
 	public:
 		// name of the language
 		std::string name;
