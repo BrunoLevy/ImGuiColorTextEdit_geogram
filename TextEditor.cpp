@@ -28,6 +28,9 @@
 
 TextEditor::TextEditor() {
 	SetPalette(defaultPalette);
+	// [Bruno Levy] additional callback.
+	callback_ = nullptr;
+	callback_client_data_ = nullptr;
 }
 
 
@@ -47,6 +50,10 @@ void TextEditor::setText(const std::string_view &text) {
 
 	showMatchingBracketsChanged = false;
 	languageChanged = false;
+        // [Bruno Levy] additional callback
+	if(callback_ != nullptr) {
+	    callback_(TEXT_EDITOR_TEXT_CHANGED, callback_client_data_);
+	}
 }
 
 
@@ -223,6 +230,25 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	renderDecorations();
 	renderScrollbarMiniMap();
 	renderPanScrollIndicator();
+
+	// [Bruno Levy] My tooltips (work in progress)
+	if(ImGui::IsWindowHovered() && callback_ != nullptr) {
+	    ImVec2 mouse = ImGui::GetMousePos();
+	    ImVec2 origin = ImGui::GetCursorScreenPos();
+	    if(mouse.y > origin.y) {
+		// Coordinates coord = ScreenPosToCoordinates(ImGui::GetMousePos());
+		// Display tooltip only if there is not already an error tooltip
+		// to display.
+		// if(mErrorMarkers.find(coord.mLine + 1) ==  mErrorMarkers.end()) {
+		    //word_context_ = GetWordContextAt(coord);
+		    word_context_ = GetWordContextAtScreenPos(mouse);
+		    if(!word_context_.empty() && word_context_ != " ") {
+			callback_(TEXT_EDITOR_TOOLTIP, callback_client_data_);
+		    }
+		// }
+	    }
+	}
+
 
 	if (ImGui::BeginPopup("LineNumberContextMenu")) {
 		lineNumberContextMenuCallback(contextMenuLine);
@@ -690,6 +716,26 @@ void TextEditor::handleKeyboardInputs() {
 		auto isShiftAlt = !ctrl && shift && alt;
 		auto isOptionalCtrlShift = !alt;
 	#endif
+
+		// [Bruno Levy] additional callback
+		if(callback_ != nullptr){
+		    if (!ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_F2)) {
+			callback_(TEXT_EDITOR_SAVE, callback_client_data_);
+			return;
+		    }
+		    if (!ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_F5)) {
+			callback_(TEXT_EDITOR_RUN, callback_client_data_);
+			return;
+		    }
+		    if (ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_C) && !HasSelection()) {
+			callback_(TEXT_EDITOR_STOP, callback_client_data_);
+			return;
+		    }
+		    if (!ctrl && !shift && !alt && ImGui::IsKeyPressed(ImGuiKey_Tab)) {
+			callback_(TEXT_EDITOR_COMPLETION, callback_client_data_); // TODO: use Autocomplete API instead
+			return;
+		    }
+		}
 
 		// ignore specific keys when autocomplete is active, they will be handled later
 		if (autocomplete.isActive() && autocomplete.isSpecialKeyPressed()) {
@@ -2132,6 +2178,7 @@ std::shared_ptr<TextEditor::Transaction> TextEditor::startTransaction(bool cance
 //
 
 bool TextEditor::endTransaction(std::shared_ptr<Transaction> transaction) {
+        bool retval = true;
 	if (transaction->actions() > 0) {
 		cursors.update();
 		transaction->setAfterState(cursors);
@@ -2157,11 +2204,18 @@ bool TextEditor::endTransaction(std::shared_ptr<Transaction> transaction) {
 			transactionCallback(changes);
 		}
 
-		return true;
+		retval = true;
 
 	} else {
-		return false;
+		retval = false;
 	}
+
+	// [Bruno Levy] additional callback
+	if(callback_ != nullptr) {
+	    callback_(TEXT_EDITOR_TEXT_CHANGED, callback_client_data_);
+	}
+
+	return retval;
 }
 
 
@@ -4158,6 +4212,8 @@ static bool inputString(const char* label, std::string* value, ImGuiInputTextFla
 void TextEditor::renderFindReplace(ImVec2 pos, float width) {
 	// render find/replace window (if required)
 	if (findReplaceVisible) {
+	        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // [Bruno Levy] use default font rather than tty font
+
 		// save current screen position
 		auto currentScreenPosition = ImGui::GetCursorScreenPos();
 
@@ -4297,6 +4353,7 @@ void TextEditor::renderFindReplace(ImVec2 pos, float width) {
 		ImGui::EndChild();
 		ImGui::PopStyleVar();
 		ImGui::SetCursorScreenPos(currentScreenPosition);
+		ImGui::PopFont(); // [Bruno Levy] use default font rather than tty font
 	}
 }
 

@@ -24,14 +24,31 @@
 #include <unordered_set>
 #include <vector>
 
-#include "imgui.h"
+// [Bruno Levy] include path redirected to geogram.
+#include <geogram_gfx/basic/common.h>
+#include <geogram_gfx/imgui_ext/imgui_ext.h>
+// #include "imgui.h"
+
+// [Bruno Levy] additional callback type.
+enum TextEditorAction {
+    TEXT_EDITOR_RUN,
+    TEXT_EDITOR_SAVE,
+    TEXT_EDITOR_STOP,
+    TEXT_EDITOR_TOOLTIP,
+    TEXT_EDITOR_COMPLETION,
+    TEXT_EDITOR_TEXT_CHANGED
+};
+
+typedef void (*TextEditorCallback)(
+    TextEditorAction action, void* client_data
+);
 
 
 //
 //	TextEditor
 //
 
-class TextEditor {
+class GEOGRAM_GFX_API TextEditor {
 public:
 	// constructor
 	TextEditor();
@@ -127,6 +144,7 @@ public:
 
 	// manipulate cursors and selections (line numbers are zero-based)
 	inline void SetCursor(int line, int column) { moveTo(document.normalizeCoordinate(Coordinate(line, column)), false); }
+
 	inline void SelectAll() { selectAll(); }
 	inline void SelectLine(int line) { if (line >= 0 && line < document.lineCount()) selectLine(line); }
 	inline void SelectLines(int start, int end) { if (start >= 0 && end < document.lineCount() && start <= end) selectLines(start, end); }
@@ -149,7 +167,11 @@ public:
 	inline void GetCurrentCursor(int& line, int& column) const { return getCursor(line, column, cursors.getCurrentIndex()); }
 
 	// alternative API for cursor and selection position using lightweight out struct (line and column are zero-based)
-	struct CursorPosition { int line = 0; int column = 0; };
+        struct CursorPosition {
+	     CursorPosition() { }
+	     CursorPosition(int l, int c) : line(l), column(c) {};
+	     int line = 0; int column = 0;
+	};
 	struct CursorSelection { CursorPosition start; CursorPosition end; };
 	inline CursorPosition GetMainCursorPosition() const { CursorPosition p; getCursor(p.line, p.column, cursors.getMainIndex()); return p; }
 	inline CursorPosition GetCurrentCursorPosition() const { CursorPosition p; getCursor(p.line, p.column, cursors.getCurrentIndex()); return p; }
@@ -382,7 +404,7 @@ public:
 		inline pointer operator->() const { return &(glyph->codepoint); }
 		inline Iterator& operator++() { glyph++; return *this; }
 		inline Iterator operator++(int) { Iterator tmp = *this; glyph++; return tmp; }
-		inline size_t operator-(const Iterator& a) { return glyph - a.glyph; }
+		inline size_t operator-(const Iterator& a) { return size_t(glyph - a.glyph); }
 		inline friend bool operator==(const Iterator& a, const Iterator& b) { return a.glyph == b.glyph; };
 		inline friend bool operator!=(const Iterator& a, const Iterator& b) { return !(a.glyph == b.glyph); };
 		inline friend bool operator<(const Iterator& a, const Iterator& b) { return a.glyph < b.glyph; };
@@ -828,8 +850,8 @@ protected:
 		inline size_t getMainIndex() const { return main; }
 		inline Cursor& getCurrent() { return at(current); }
 		inline size_t getCurrentIndex() const { return current; }
-		inline iterator getMainAsIterator() { return begin() + main; }
-		inline iterator getCurrentAsIterator() { return begin() + current; }
+		inline iterator getMainAsIterator() { return begin() + difference_type(main); }
+		inline iterator getCurrentAsIterator() { return begin() + difference_type(current); }
 
 		// update cursors
 		void update();
@@ -912,7 +934,7 @@ protected:
 		ImWchar getCodePoint(Coordinate location) const;
 
 		// get line or color state
-		inline State getLineState(int line) const { return at(line).state; }
+		inline State getLineState(int line) const { return at(size_type(line)).state; }
 		Color getColor(Coordinate location) const;
 
 		// see if document is empty
@@ -927,9 +949,9 @@ protected:
 
 		// translate visible column to line index (and visa versa)
 		size_t getIndex(const Line& line, int column) const;
-		inline size_t getIndex(Coordinate coordinate) const { return getIndex(at(coordinate.line), coordinate.column); }
+		inline size_t getIndex(Coordinate coordinate) const { return getIndex(at(size_type(coordinate.line)), coordinate.column); }
 		int getColumn(const Line& line, size_t index) const;
-		inline int getColumn(int line, size_t index) const { return getColumn(at(line), index); }
+		inline int getColumn(int line, size_t index) const { return getColumn(at(size_type(line)), index); }
 
 		// coordinate operations in context of document
 		Coordinate getUp(Coordinate from, int lines=1) const;
@@ -965,7 +987,7 @@ protected:
 
 		// utility functions
 		bool isWholeWord(Coordinate start, Coordinate end) const;
-		inline bool isEndOfLine(Coordinate from) const { return getIndex(from) == at(from.line).size(); }
+		inline bool isEndOfLine(Coordinate from) const { return getIndex(from) == at(size_type(from.line)).size(); }
 		inline bool isLastLine(int line) const { return line == lineCount() - 1; }
 		Coordinate findPreviousNonWhiteSpace(Coordinate from, bool includeEndOfLine=true) const;
 		Coordinate findNextNonWhiteSpace(Coordinate from, bool includeEndOfLine=true) const;
@@ -1372,4 +1394,103 @@ protected:
 
 	// language support
 	const Language* language = nullptr;
+
+  public:
+        // [Bruno Levy] Additional callback.
+
+	void set_callback(
+	    TextEditorCallback cb, void* cb_cli_data = nullptr
+	) {
+	    callback_ = cb;
+	    callback_client_data_ = cb_cli_data;
+	}
+
+	// [Bruno Levy] gets the text source element under the pointer
+	// when a tooltip should be displayed.
+	const std::string& GetWordContext() const {
+	    return word_context_;
+	}
+
+	// [Bruno Levy] backward compatibility
+
+        typedef CursorPosition Coordinates;
+
+        inline void SetCursorPosition(const Coordinates& XY) {
+	    SetCursor(XY.line, XY.column);
+	}
+
+	inline Coordinates GetMousePosition() const {
+	    ImVec2 screenPos = ImGui::GetMousePos();
+	    auto local = ImVec2(
+		screenPos.x-lastRenderOrigin.x,
+		screenPos.y-lastRenderOrigin.y
+	    );
+	    // convert to text coordinates
+	    Coordinate glyphCoordinate;
+	    Coordinate cursorCoordinate;
+	    document.normalizeCoordinate(local.y / glyphSize.y, (local.x - textOffset) / glyphSize.x, glyphCoordinate, cursorCoordinate);
+	    return Coordinates(cursorCoordinate.line,cursorCoordinate.column);
+	}
+
+
+        void InsertText(const std::string& text) {
+	    auto transaction = startTransaction();
+	    insertTextIntoAllCursors(transaction, text);
+	    endTransaction(transaction);
+        }
+
+        bool HasSelection() const {
+	    return AnyCursorHasSelection();
+	}
+
+        std::string GetSelection() const {
+	    auto& cursor = const_cast<TextEditor*>(this)->cursors.getMain();
+	    if(!cursor.hasSelection()) {
+		return std::string("");
+	    }
+	    auto start = cursor.getSelectionStart();
+	    auto end = cursor.getSelectionEnd();
+	    return document.getSectionText(start,end);
+        }
+
+	Coordinates GetSelectionStart() const {
+	    auto& cursor = const_cast<TextEditor*>(this)->cursors.getMain();
+	    auto result = cursor.getSelectionStart();
+	    return Coordinates(result.line, result.column);
+	}
+
+        std::string GetLine(int l) const {
+	    return GetLineText(l);
+        }
+
+	bool IsWordContextBoundary(char c) const {
+	    return
+		c == ' '  ||
+		c == '\t' ||
+		c == ','  ||
+		c == '('  ||
+		c == ')'  ||
+		c == '='  ;
+	    ;
+	}
+
+	std::string GetWordContextAtScreenPos(const ImVec2& coords) const {
+	    // TODO: search forward and backward for WordContextBoundaries
+	    //  (get inspired from findWordStart / findWordEnd)
+	    return GetWordAtScreenPos(coords);
+	}
+
+
+	void ShowFindAndReplaceDialog() {
+	    if (autocomplete.isActive()) {
+		autocomplete.cancel();
+		findCancelledAutocomplete = true;
+	    }
+	    openFindReplace();
+	}
+
+  private:
+	TextEditorCallback callback_;
+	void* callback_client_data_;
+	std::string word_context_;
 };
