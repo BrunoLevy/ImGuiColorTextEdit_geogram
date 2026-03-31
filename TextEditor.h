@@ -27,6 +27,7 @@
 // [Bruno Levy] include path redirected to geogram.
 #include <geogram_gfx/basic/common.h>
 #include <geogram_gfx/imgui_ext/imgui_ext.h>
+#include <geogram_gfx/imgui_ext/icon_font.h>
 // #include "imgui.h"
 
 // [Bruno Levy] additional callback type.
@@ -181,6 +182,9 @@ public:
 
 	// get the word at a screen position
 	std::string GetWordAtScreenPos(const ImVec2& screenPos) const;
+
+	// [Bruno Levy] for autocompletion (TODO: use builtin autocompletion instead)
+	std::string GetWordContextAtScreenPos(const ImVec2& screenPos) const;
 
 	// scrolling support
 	enum class Scroll {
@@ -643,6 +647,7 @@ public:
 		static bool isLetter(ImWchar codepoint);
 		static bool isNumber(ImWchar codepoint);
 		static bool isWord(ImWchar codepoint);
+		static bool isWordContext(ImWchar codepoint);
 		static bool isWhiteSpace(ImWchar codepoint);
 		static bool isXidStart(ImWchar codepoint);
 		static bool isXidContinue(ImWchar codepoint);
@@ -967,6 +972,9 @@ protected:
 		// search in document
 		Coordinate findWordStart(Coordinate from, bool wordOnly=false) const;
 		Coordinate findWordEnd(Coordinate from, bool wordOnly=false) const;
+	        Coordinate findWordContextStart(Coordinate from) const; // [Bruno Levy] for autocompletion (TODO: use builtin autocmpl instead)
+	        Coordinate findWordContextEnd(Coordinate from) const; // [Bruno Levy] for autocompletion (TODO: use builtin autocmpl instead)
+
 		bool findText(Coordinate from, const std::string_view& text, bool caseSensitive, bool wholeWord, Coordinate& start, Coordinate& end) const;
 
 		// see if document was updated this frame (can only be called once)
@@ -1412,9 +1420,7 @@ protected:
 	}
 
 	// [Bruno Levy] backward compatibility
-
         typedef CursorPosition Coordinates;
-
         inline void SetCursorPosition(const Coordinates& XY) {
 	    SetCursor(XY.line, XY.column);
 	}
@@ -1462,24 +1468,6 @@ protected:
         std::string GetLine(int l) const {
 	    return GetLineText(l);
         }
-
-	bool IsWordContextBoundary(char c) const {
-	    return
-		c == ' '  ||
-		c == '\t' ||
-		c == ','  ||
-		c == '('  ||
-		c == ')'  ||
-		c == '='  ;
-	    ;
-	}
-
-	std::string GetWordContextAtScreenPos(const ImVec2& coords) const {
-	    // TODO: search forward and backward for WordContextBoundaries
-	    //  (get inspired from findWordStart / findWordEnd)
-	    return GetWordAtScreenPos(coords);
-	}
-
 
 	void ShowFindAndReplaceDialog() {
 	    if (autocomplete.isActive()) {

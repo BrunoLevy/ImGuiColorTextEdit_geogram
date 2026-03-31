@@ -236,19 +236,23 @@ void TextEditor::render(const char* title, const ImVec2& size, bool border) {
 	    ImVec2 mouse = ImGui::GetMousePos();
 	    ImVec2 origin = ImGui::GetCursorScreenPos();
 	    if(mouse.y > origin.y) {
-		// Coordinates coord = ScreenPosToCoordinates(ImGui::GetMousePos());
-		// Display tooltip only if there is not already an error tooltip
-		// to display.
-		// if(mErrorMarkers.find(coord.mLine + 1) ==  mErrorMarkers.end()) {
-		    //word_context_ = GetWordContextAt(coord);
+		// convert screen position to local coordinates using the origin saved during last Render()
+		auto local = mouse - lastRenderOrigin;
+		// convert to text coordinates
+		Coordinate glyphCoordinate;
+		Coordinate cursorCoordinate;
+		document.normalizeCoordinate(
+		    local.y / glyphSize.y, (local.x - textOffset) / glyphSize.x, glyphCoordinate, cursorCoordinate
+		);
+		// Display tooltip only if there is not already an error tooltip to display.
+		if (!document[glyphCoordinate.line].marker) {
 		    word_context_ = GetWordContextAtScreenPos(mouse);
 		    if(!word_context_.empty() && word_context_ != " ") {
 			callback_(TEXT_EDITOR_TOOLTIP, callback_client_data_);
 		    }
-		// }
+		}
 	    }
 	}
-
 
 	if (ImGui::BeginPopup("LineNumberContextMenu")) {
 		lineNumberContextMenuCallback(contextMenuLine);
@@ -1375,6 +1379,22 @@ std::string TextEditor::GetWordAtScreenPos(const ImVec2& screenPos) const {
 	// Find word boundaries and extract text
 	auto start = document.findWordStart(glyphCoordinate);
 	auto end = document.findWordEnd(glyphCoordinate);
+	return document.getSectionText(start, end);
+}
+
+// [Bruno Levy]
+std::string TextEditor::GetWordContextAtScreenPos(const ImVec2& screenPos) const {
+	// convert screen position to local coordinates using the origin saved during last Render()
+	auto local = screenPos - lastRenderOrigin;
+
+	// convert to text coordinates
+	Coordinate glyphCoordinate;
+	Coordinate cursorCoordinate;
+	document.normalizeCoordinate(local.y / glyphSize.y, (local.x - textOffset) / glyphSize.x, glyphCoordinate, cursorCoordinate);
+
+	// Find word boundaries and extract text
+	auto start = document.findWordContextStart(glyphCoordinate);
+	auto end = document.findWordContextEnd(glyphCoordinate);
 	return document.getSectionText(start, end);
 }
 
@@ -3238,6 +3258,70 @@ TextEditor::Coordinate TextEditor::Document::findWordEnd(Coordinate from, bool w
 }
 
 
+// [Bruno Levy]
+TextEditor::Coordinate TextEditor::Document::findWordContextStart(Coordinate from) const {
+    bool wordOnly = false;
+    auto& line = at(from.line);
+    auto lineSize = line.size();
+
+    if (from.column == 0 || lineSize == 0) {
+	return from;
+    } else {
+	auto index = getIndex(from);
+	auto firstCharacter = line[index - 1].codepoint;
+
+	if (!wordOnly && CodePoint::isWhiteSpace(firstCharacter)) {
+	    while (index > 0 && CodePoint::isWhiteSpace(line[index - 1].codepoint)) {
+		index--;
+	    }
+	} else if (CodePoint::isWordContext(firstCharacter)) {
+	    while (index > 0 && CodePoint::isWordContext(line[index - 1].codepoint)) {
+		index--;
+	    }
+	} else {
+	    while (
+		!wordOnly && index > 0 &&
+		!CodePoint::isWordContext(line[index - 1].codepoint) &&
+		!CodePoint::isWhiteSpace(line[index - 1].codepoint)
+	    ) {
+		index--;
+	    }
+	}
+	return Coordinate(from.line, getColumn(line, index));
+    }
+}
+
+// [Bruno Levy]
+TextEditor::Coordinate TextEditor::Document::findWordContextEnd(Coordinate from) const {
+    bool wordOnly = false;
+    auto& line = at(from.line);
+    auto index = getIndex(from);
+    auto size = line.size();
+    if (index >= size) {
+	return from;
+    } else {
+	auto firstCharacter = line[index].codepoint;
+	if (!wordOnly && CodePoint::isWhiteSpace(firstCharacter)) {
+	    while (index < size && CodePoint::isWhiteSpace(line[index].codepoint)) {
+		index++;
+	    }
+	} else if (CodePoint::isWordContext(firstCharacter)) {
+	    while (index < size && CodePoint::isWordContext(line[index].codepoint)) {
+		index++;
+	    }
+	} else {
+	    while (
+		!wordOnly && index < size &&
+		!CodePoint::isWordContext(line[index].codepoint) &&
+		!CodePoint::isWhiteSpace(line[index].codepoint)
+	    ) {
+		index++;
+	    }
+	}
+    }
+    return Coordinate(from.line, getColumn(line, index));
+}
+
 //
 //	TextEditor::Document::findText
 //
@@ -4320,7 +4404,8 @@ void TextEditor::renderFindReplace(ImVec2 pos, float width) {
 
 		ImGui::SameLine();
 
-		if (ImGui::Button("x", ImVec2(optionWidth, 0.0f))) {
+		// [Bruno Levy] cute icon for close button
+		if (ImGui::Button(::GEO::icon_UTF8("window-close").c_str(), ImVec2(optionWidth, 0.0f))) {
 			closeFindReplace();
 		}
 
@@ -6303,7 +6388,6 @@ bool TextEditor::CodePoint::isWhiteSpace(ImWchar codepoint) {
 	}
 }
 
-
 //
 //	TextEditor::CodePoint::isWord
 //
@@ -6331,6 +6415,22 @@ bool TextEditor::CodePoint::isWord(ImWchar codepoint) {
 	}
 }
 
+
+// [Bruno Levy]
+bool TextEditor::CodePoint::isWordContext(ImWchar codepoint) {
+    if(codepoint > 255) {
+	return false;
+    }
+    char c = static_cast<char>(codepoint);
+    return
+	c != ' '  &&
+	c != '\t' &&
+	c != ','  &&
+	c != '('  &&
+	c != ')'  &&
+	c != '='  ;
+    ;
+}
 
 //
 //	TextEditor::CodePoint::isXidContinue
