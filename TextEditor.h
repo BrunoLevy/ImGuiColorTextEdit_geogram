@@ -28,9 +28,8 @@
 #include <geogram_gfx/basic/common.h>
 #include <geogram_gfx/imgui_ext/imgui_ext.h>
 #include <geogram_gfx/imgui_ext/icon_font.h>
-// #include "imgui.h"
 
-// [Bruno Levy] additional callback type.
+// [Bruno Levy] additional callback types.
 enum TextEditorAction {
     TEXT_EDITOR_RUN,
     TEXT_EDITOR_SAVE,
@@ -43,6 +42,7 @@ enum TextEditorAction {
 typedef void (*TextEditorCallback)(
     TextEditorAction action, void* client_data
 );
+// [Bruno Levy] end of additional types.
 
 
 //
@@ -170,7 +170,7 @@ public:
 	// alternative API for cursor and selection position using lightweight out struct (line and column are zero-based)
         struct CursorPosition {
 	     CursorPosition() { }
-	     CursorPosition(int l, int c) : line(l), column(c) {};
+	     CursorPosition(int l, int c) : line(l), column(c) {}
 	     int line = 0; int column = 0;
 	};
 	struct CursorSelection { CursorPosition start; CursorPosition end; };
@@ -755,6 +755,8 @@ protected:
 
 		static inline Coordinate invalid() { static Coordinate invalid(-1, -1); return invalid; }
 		inline bool isValid() const { return line >= 0 && column >= 0; }
+
+	        operator CursorPosition() const { return CursorPosition(line, column); } // [Bruno Levy]
 
 		int line = 0;
 		int column = 0;
@@ -1404,28 +1406,28 @@ protected:
 	const Language* language = nullptr;
 
   public:
-        // [Bruno Levy] Additional callback.
 
-	void set_callback(
+        // [Bruno Levy] Additional functions (callback management
+        // and backward compatibility with initial ImGuiColorTextEdit)
+
+        inline void set_callback(
 	    TextEditorCallback cb, void* cb_cli_data = nullptr
 	) {
 	    callback_ = cb;
 	    callback_client_data_ = cb_cli_data;
 	}
 
-	// [Bruno Levy] gets the text source element under the pointer
+	// Gets the text source element under the pointer
 	// when a tooltip should be displayed.
-	const std::string& GetWordContext() const {
+	inline const std::string& GetWordContext() const {
 	    return word_context_;
 	}
 
-	// [Bruno Levy] backward compatibility
-        typedef CursorPosition Coordinates;
-        inline void SetCursorPosition(const Coordinates& XY) {
+        inline void SetCursorPosition(const CursorPosition& XY) {
 	    SetCursor(XY.line, XY.column);
 	}
 
-	inline Coordinates GetMousePosition() const {
+	inline CursorPosition GetMousePosition() const {
 	    ImVec2 screenPos = ImGui::GetMousePos();
 	    auto local = ImVec2(
 		screenPos.x-lastRenderOrigin.x,
@@ -1435,21 +1437,20 @@ protected:
 	    Coordinate glyphCoordinate;
 	    Coordinate cursorCoordinate;
 	    document.normalizeCoordinate(local.y / glyphSize.y, (local.x - textOffset) / glyphSize.x, glyphCoordinate, cursorCoordinate);
-	    return Coordinates(cursorCoordinate.line,cursorCoordinate.column);
+	    return CursorPosition(cursorCoordinate);
 	}
 
-
-        void InsertText(const std::string& text) {
+        inline void InsertText(const std::string& text) {
 	    auto transaction = startTransaction();
 	    insertTextIntoAllCursors(transaction, text);
 	    endTransaction(transaction);
         }
 
-        bool HasSelection() const {
+        inline bool HasSelection() const {
 	    return AnyCursorHasSelection();
 	}
 
-        std::string GetSelection() const {
+        inline std::string GetSelection() const {
 	    auto& cursor = const_cast<TextEditor*>(this)->cursors.getMain();
 	    if(!cursor.hasSelection()) {
 		return std::string("");
@@ -1459,26 +1460,27 @@ protected:
 	    return document.getSectionText(start,end);
         }
 
-	Coordinates GetSelectionStart() const {
+	inline CursorPosition GetSelectionStart() const {
 	    auto& cursor = const_cast<TextEditor*>(this)->cursors.getMain();
-	    auto result = cursor.getSelectionStart();
-	    return Coordinates(result.line, result.column);
+	    return CursorPosition(cursor.getSelectionStart());
 	}
 
-        std::string GetLine(int l) const {
+        inline std::string GetLine(int l) const {
 	    return GetLineText(l);
         }
 
-	void ShowFindAndReplaceDialog() {
+	inline void ShowFindAndReplaceDialog() {
 	    if (autocomplete.isActive()) {
 		autocomplete.cancel();
 		findCancelledAutocomplete = true;
 	    }
 	    openFindReplace();
 	}
-
+	// [Bruno Levy] end of additional functions
   private:
+        // [Bruno Levy] additional members
 	TextEditorCallback callback_;
 	void* callback_client_data_;
 	std::string word_context_;
+	// [Bruno Levy] end of additional members
 };

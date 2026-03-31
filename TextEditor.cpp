@@ -3260,7 +3260,6 @@ TextEditor::Coordinate TextEditor::Document::findWordEnd(Coordinate from, bool w
 
 // [Bruno Levy]
 TextEditor::Coordinate TextEditor::Document::findWordContextStart(Coordinate from) const {
-    bool wordOnly = false;
     auto& line = at(from.line);
     auto lineSize = line.size();
 
@@ -3270,7 +3269,7 @@ TextEditor::Coordinate TextEditor::Document::findWordContextStart(Coordinate fro
 	auto index = getIndex(from);
 	auto firstCharacter = line[index - 1].codepoint;
 
-	if (!wordOnly && CodePoint::isWhiteSpace(firstCharacter)) {
+	if (CodePoint::isWhiteSpace(firstCharacter)) {
 	    while (index > 0 && CodePoint::isWhiteSpace(line[index - 1].codepoint)) {
 		index--;
 	    }
@@ -3280,7 +3279,7 @@ TextEditor::Coordinate TextEditor::Document::findWordContextStart(Coordinate fro
 	    }
 	} else {
 	    while (
-		!wordOnly && index > 0 &&
+		index > 0 &&
 		!CodePoint::isWordContext(line[index - 1].codepoint) &&
 		!CodePoint::isWhiteSpace(line[index - 1].codepoint)
 	    ) {
@@ -3293,7 +3292,6 @@ TextEditor::Coordinate TextEditor::Document::findWordContextStart(Coordinate fro
 
 // [Bruno Levy]
 TextEditor::Coordinate TextEditor::Document::findWordContextEnd(Coordinate from) const {
-    bool wordOnly = false;
     auto& line = at(from.line);
     auto index = getIndex(from);
     auto size = line.size();
@@ -3301,7 +3299,7 @@ TextEditor::Coordinate TextEditor::Document::findWordContextEnd(Coordinate from)
 	return from;
     } else {
 	auto firstCharacter = line[index].codepoint;
-	if (!wordOnly && CodePoint::isWhiteSpace(firstCharacter)) {
+	if (CodePoint::isWhiteSpace(firstCharacter)) {
 	    while (index < size && CodePoint::isWhiteSpace(line[index].codepoint)) {
 		index++;
 	    }
@@ -3311,7 +3309,7 @@ TextEditor::Coordinate TextEditor::Document::findWordContextEnd(Coordinate from)
 	    }
 	} else {
 	    while (
-		!wordOnly && index < size &&
+		index < size &&
 		!CodePoint::isWordContext(line[index].codepoint) &&
 		!CodePoint::isWhiteSpace(line[index].codepoint)
 	    ) {
