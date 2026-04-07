@@ -1043,9 +1043,9 @@ protected:
  	class Transaction : public std::vector<Action> {
 	public:
 		// access state before/after transactions
-		inline void setBeforeState(const Cursors& cursors) { before = cursors; }
+		inline void setBeforeState(const Cursors& cursors_in) { before = cursors_in; }
 		inline const Cursors& getBeforeState() const { return before; }
-		inline void setAfterState(const Cursors& cursors) { after = cursors; }
+		inline void setAfterState(const Cursors& cursors_in) { after = cursors_in; }
 		inline const Cursors& getAfterState() const { return after; }
 
 		// add actions by type
