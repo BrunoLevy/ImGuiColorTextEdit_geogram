@@ -493,7 +493,7 @@ public:
 	};
 
 	inline void SetLanguage(const Language* l) { language = l; languageChanged = true; }
-	inline const Language* GetLanguage() const { return language; };
+	inline const Language* GetLanguage() const { return language; }
 	inline bool HasLanguage() const { return language != nullptr; }
 	inline std::string GetLanguageName() const { return language == nullptr ? "None" : language->name; }
 
@@ -1049,8 +1049,8 @@ protected:
 		inline const Cursors& getAfterState() const { return after; }
 
 		// add actions by type
-		void addInsert(Coordinate start, Coordinate end, std::string_view text) { emplace_back(Action::Type::insertText, start, end, text); };
-		void addDelete(Coordinate start, Coordinate end, std::string_view text) { emplace_back(Action::Type::deleteText, start, end, text); };
+		void addInsert(Coordinate start, Coordinate end, std::string_view text) { emplace_back(Action::Type::insertText, start, end, text); }
+		void addDelete(Coordinate start, Coordinate end, std::string_view text) { emplace_back(Action::Type::deleteText, start, end, text); }
 
 		// get number of actions
 		inline int actions() const { return static_cast<int>(size()); }
