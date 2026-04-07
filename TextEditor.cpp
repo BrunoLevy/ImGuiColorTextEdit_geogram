@@ -2513,7 +2513,7 @@ void TextEditor::Cursor::adjustForDelete(Coordinate deleteStart, Coordinate dele
 
 void TextEditor::Cursors::reset() {
 	clear();
-	main = 0;
+	main_index = 0;
 	current = 0;
 }
 
@@ -2613,7 +2613,7 @@ void TextEditor::Cursors::clearAdditional(bool reset) {
 		}
 	}
 
-	main = 0;
+	main_index = 0;
 	current = 0;
 	front().setCurrent(true);
 
@@ -2690,7 +2690,7 @@ void TextEditor::Cursors::update() {
 		// find main and current cursor
 		for (size_t c = 0; c < size(); c++) {
 			if (at(c).isMain()) {
-				main = c;
+				main_index = c;
 
 			} else if (at(c).isCurrent()) {
 				current = c;

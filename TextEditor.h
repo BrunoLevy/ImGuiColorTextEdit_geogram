@@ -790,8 +790,8 @@ protected:
 		inline void resetToStart() { update(getSelectionStart(), getSelectionStart()); }
 		inline void resetToEnd() { update(getSelectionEnd(), getSelectionEnd()); }
 
-		inline void setMain(bool value) { main = value; }
-		inline bool isMain() const { return main; }
+		inline void setMain(bool value) { is_main = value; }
+		inline bool isMain() const { return is_main; }
 
 		inline void setCurrent(bool value) { current = value; }
 		inline bool isCurrent() const { return current; }
@@ -807,7 +807,7 @@ protected:
 		// properties
 		Coordinate start{0, 0};
 		Coordinate end{0, 0};
-		bool main = false;
+		bool is_main = false;
 		bool current = true;
 		bool updated = true;
 	};
@@ -838,9 +838,9 @@ protected:
 		inline bool hasMultiple() const { return size() > 1; }
 		bool anyHasSelection() const;
 		bool allHaveSelection() const;
-		inline bool mainCursorHasSelection() const { return at(main).hasSelection(); }
+		inline bool mainCursorHasSelection() const { return at(main_index).hasSelection(); }
 		inline bool currentCursorHasSelection() const { return at(current).hasSelection(); }
-		inline bool mainHasUpdate() const { return at(main).isUpdated(); }
+		inline bool mainHasUpdate() const { return at(main_index).isUpdated(); }
 		bool anyHasUpdate() const;
 
 		// clear the selections and create the default cursor
@@ -853,11 +853,11 @@ protected:
 		void clearUpdated();
 
 		// get main/current cursor
-		inline Cursor& getMain() { return at(main); }
-		inline size_t getMainIndex() const { return main; }
+		inline Cursor& getMain() { return at(main_index); }
+		inline size_t getMainIndex() const { return main_index; }
 		inline Cursor& getCurrent() { return at(current); }
 		inline size_t getCurrentIndex() const { return current; }
-		inline iterator getMainAsIterator() { return begin() + difference_type(main); }
+		inline iterator getMainAsIterator() { return begin() + difference_type(main_index); }
 		inline iterator getCurrentAsIterator() { return begin() + difference_type(current); }
 
 		// update cursors
@@ -869,7 +869,7 @@ protected:
 		void adjustForDelete(iterator start, Coordinate deleteStart, Coordinate deleteEnd);
 
 	private:
-		size_t main = 0;
+		size_t main_index = 0;
 		size_t current = 0;
 	} cursors;
 
