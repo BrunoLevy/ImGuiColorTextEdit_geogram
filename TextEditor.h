@@ -139,9 +139,9 @@ public:
 	inline void Paste() { if (!readOnly) paste(); }
 	inline void Undo() { if (!readOnly) undo(); }
 	inline void Redo() { if (!readOnly) redo(); }
-	inline bool CanUndo() const { return !readOnly && transactions.canUndo(); };
-	inline bool CanRedo() const { return !readOnly && transactions.canRedo(); };
-	inline size_t GetUndoIndex() const { return transactions.getUndoIndex(); };
+	inline bool CanUndo() const { return !readOnly && transactions.canUndo(); }
+	inline bool CanRedo() const { return !readOnly && transactions.canRedo(); }
+	inline size_t GetUndoIndex() const { return transactions.getUndoIndex(); }
 
 	// manipulate cursors and selections (line numbers are zero-based)
 	inline void SetCursor(int line, int column) { moveTo(document.normalizeCoordinate(Coordinate(line, column)), false); }
@@ -409,12 +409,12 @@ public:
 		inline Iterator& operator++() { glyph++; return *this; }
 		inline Iterator operator++(int) { Iterator tmp = *this; glyph++; return tmp; }
 		inline size_t operator-(const Iterator& a) { return size_t(glyph - a.glyph); }
-		inline friend bool operator==(const Iterator& a, const Iterator& b) { return a.glyph == b.glyph; };
-		inline friend bool operator!=(const Iterator& a, const Iterator& b) { return !(a.glyph == b.glyph); };
-		inline friend bool operator<(const Iterator& a, const Iterator& b) { return a.glyph < b.glyph; };
-		inline friend bool operator<=(const Iterator& a, const Iterator& b) { return a.glyph <= b.glyph; };
-		inline friend bool operator>(const Iterator& a, const Iterator& b) { return a.glyph > b.glyph; };
-		inline friend bool operator>=(const Iterator& a, const Iterator& b) { return a.glyph >= b.glyph; };
+		inline friend bool operator==(const Iterator& a, const Iterator& b) { return a.glyph == b.glyph; }
+		inline friend bool operator!=(const Iterator& a, const Iterator& b) { return !(a.glyph == b.glyph); }
+		inline friend bool operator<(const Iterator& a, const Iterator& b) { return a.glyph < b.glyph; }
+		inline friend bool operator<=(const Iterator& a, const Iterator& b) { return a.glyph <= b.glyph; }
+		inline friend bool operator>(const Iterator& a, const Iterator& b) { return a.glyph > b.glyph; }
+		inline friend bool operator>=(const Iterator& a, const Iterator& b) { return a.glyph >= b.glyph; }
 
 	private:
 		// properties
