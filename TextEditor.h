@@ -550,7 +550,7 @@ public:
 
 		// manual trigger key sequence (default is Ctrl+space on all platforms, even MacOS)
 		// remember Dear ImGui reverses Ctrl and Command on MacOS
-#if __APPLE__
+#ifdef __APPLE__
 		ImGuiKeyChord triggerShortcut = ImGuiMod_Super | ImGuiKey_Space;
 #else
 		ImGuiKeyChord triggerShortcut = ImGuiMod_Ctrl | ImGuiKey_Space;
