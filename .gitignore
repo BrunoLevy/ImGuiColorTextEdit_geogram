@@ -12,8 +12,11 @@
 
 # Editor files
 /.vscode
+/.cache
 *.bak
 Save/*
 
 # Build files
 /build
+example/.vs
+example/out

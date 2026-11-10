@@ -1,14 +1,14 @@
-# Autocomplete
+# AutoComplete
 
 The text editor provides an optional autocomplete framework. Once configured, the editor
 takes care of activation events (triggering), state tracking, visualization and insertion
 of suggestions with full undo/redo. The application is responsible for providing the list
 of suggestions through a callback or the API. This allows simple implementations to provide
 suggestions in realtime and allows other implementations to do things asynchronously like
-reaching out to a language server. Autocomplete can't be triggered when multiple cursors
+reaching out to a language server. AutoComplete can't be triggered when multiple cursors
 are active as this causes a mess. Try it in Visual Studio Code if you want to see what I mean.
 
-![Autocomplete](autocomplete.png)
+![AutoComplete](autocomplete.png)
 
 To activate the feature, the app must provide a configuration like:
 
@@ -39,6 +39,12 @@ public:
 	bool triggerInComments = false;
 	bool triggerInStrings = false;
 
+	// characters (UTF-8) that trigger autocomplete when typed in addition to word characters (e.g. "\\" or ".")
+	std::string triggerCharacters;
+
+	// characters (UTF-8) that are part of a search term in addition to word characters (e.g. "\\^:" for LaTeX-like completions)
+	std::string wordCharacters;
+
 	// manual trigger key sequence (default is Ctrl+space on all platforms, even MacOS)
 	// remember Dear ImGui reverses Ctrl and Command on MacOS
 #if __APPLE__
@@ -52,10 +58,13 @@ public:
 	bool autoInsertSingleSuggestions = false;
 
 	// delay in milliseconds between autocomplete trigger and suggestions popup
-	std::chrono::milliseconds triggerDelay{200};
+	std::chrono::milliseconds triggerDelay(200);
 
 	// text label used when no suggestions are available (this allows for internationalization)
 	std::string noSuggestionsLabel = "No suggestions";
+
+	// width of suggestion popup expressed in number of glyphs
+	size_t suggestionWidth = 30;
 
 	// called when autocomplete is configured, active and the editor needs an updated suggestions list
 	// callback must populate and order suggestions in state object
@@ -64,7 +73,6 @@ public:
 
 	// if it takes too long, applications should do search in separate thread and
 	// use API to report results (see SetAutoCompleteSuggestions)
-	// callback should set suggestionsPromise to true in this case
 	std::function<void(AutoCompleteState&)> callback;
 
 	// optional opaque void* that must be managed externally but passed to callback
@@ -79,14 +87,16 @@ It is defined as:
 ```c++
 class AutoCompleteState {
 public:
-	// current context (strings = UTF-8, columns = Nth visible column and indices = Nth codepoint)
-	// to understand the difference between column and index, think like a tab :-)
+	// current context
 	std::string searchTerm;
-	size_t line;
-	size_t searchTermStartColumn;
-	size_t searchTermStartIndex;
-	size_t searchTermEndColumn;
-	size_t searchTermEndIndex;
+	DocPos searchTermStart;
+	DocPos searchTermEnd;
+
+	// section replaced by a picked suggestion (defaults to the search term start and the end of the word at the cursor)
+	// the callback can move these on the same line (start not after and end not before the cursor)
+	// e.g. back to a backslash for LaTeX-like completions or to the cursor to keep the text after it
+	DocPos replacementStart;
+	DocPos replacementEnd;
 
 	bool inIdentifier;
 	bool inNumber;
@@ -96,7 +106,7 @@ public:
 	// currently selected language (could be nullptr if no language is selected)
 	const Language* language;
 
-	// opaque void* provided by app when autocomplete was setup
+	// optional opaque void* provided by app when autocomplete was setup
 	void* userData;
 
 	// auto complete suggestions te be provided by app callback (the app is responsible for sorting)
@@ -106,71 +116,75 @@ public:
 	// a pointer to the current language definition is provided so callbacks have easy access
 	std::vector<std::string> suggestions;
 
+	// optional labels (UTF-8) shown in the popup instead of the suggestions (e.g. "\lambda  λ" for suggestion "λ")
+	// labels are only used if there is one for each suggestion and are cleared before each callback call
+	std::vector<std::string> labels;
+
 	// set this to true if you are building the suggestion list asynchronously and provide it later
 	// this way autocomplete is not cancelled if the suggestion list is empty and the user hits tab or enter
 	bool suggestionsPromise = false;
 };
 ```
 
-The editor also comes with a Trie class that implements fuzzy searching and
-the example app shows how it can be used. Given that this is a primitive,
-poor-man's solution, more sophisticated solutions probably required external
-language engines/services that are beyond the scope of this editor. With the
-provided API however, connections to external capabilities can be established
-and context-sensitive suggestions can be provided based on the most advanced
-algorithms (even good-old AI slop :-).
+Asynchronous suggestions (and optional labels) can be provided with
+**SetAutoCompleteSuggestions(suggestions)** or **SetAutoCompleteSuggestions(suggestions, labels)**.
 
-Below is a quick snippet that shows how to use the Trie class to implement
-a poor-man's autocomplete without using a language server. This snippet
-was taken from the [example application](../example/) so can see it in
-context.
+By default, a search term consists of word characters (letters, digits and underscores)
+and only typing those triggers autocomplete. The **triggerCharacters**, **wordCharacters**,
+movable **replacementStart**/**replacementEnd** and **labels** make other completion styles possible. As an example,
+LaTeX-like symbol input (typing **\lambda** and picking **λ**, like the Julia REPL) can be done with:
 
 ```c++
-void Editor::setAutocompleteMode(bool flag) {
-	// see we are turning autocomplete on or off
-	if (flag) {
-		// rebuild word list
-		buildAutocompleteTrie();
+config.triggerCharacters = "\\";
+config.wordCharacters = "\\^";
 
-		// setup autocomplete by submitting a new configuration
-		TextEditor::AutoCompleteConfig config;
+config.callback = [](TextEditor::AutoCompleteState& state) {
+	state.suggestions.clear();
 
-		config.callback = [this](TextEditor::AutoCompleteState& state) {
-			trie.findSuggestions(state.suggestions, state.searchTerm);
-		};
+	// only complete from the last backslash (so x\alpha becomes xα)
+	const auto backslash = state.searchTerm.rfind('\\');
 
-		editor.SetAutoCompleteConfig(&config);
+	if (backslash != std::string::npos) {
+		// only replace from the backslash to the cursor (DocPos indices count codepoints, not bytes)
+		for (size_t i = 0; i < backslash; i++) {
+			if ((state.searchTerm[i] & 0xc0) != 0x80) {
+				state.replacementStart.index++;
+			}
+		}
 
-		// enable change tracking
-		// we don't track every keystroke, callbacks can be delayed up to 3000 milliseconds
-		// if you want live tracking, change 3000 to 0 (performance hit will be minimal for small documents)
-		editor.SetChangeCallback([this]() {
-			buildAutocompleteTrie();
-		}, 3000);
+		state.replacementEnd = state.searchTermEnd;
 
-	} else {
-		// disable autocomplete and change tracking
-		editor.SetAutoCompleteConfig(nullptr);
-		editor.SetChangeCallback(nullptr);
+		// find symbols whose name starts with state.searchTerm.substr(backslash)
+		// and add them to state.suggestions (e.g. "λ") and state.labels (e.g. "\lambda  λ")
+		...
 	}
-}
-
-void Editor::buildAutocompleteTrie() {
-	// empty list first
-	trie.clear();
-
-	// add language words (if required)
-	auto language = editor.GetLanguage();
-
-	if (language) {
-		for (auto& word : language->keywords) { trie.insert(word); }
-		for (auto& word : language->declarations) { trie.insert(word); }
-		for (auto& word : language->identifiers) { trie.insert(word); }
-	}
-
-	// add all identifiers in current document
-	editor.IterateIdentifiers([this](const std::string& identifier) {
-		trie.insert(identifier);
-	});
-}
+};
 ```
+
+The editor comes with two autocomplete solutions that are in the extras
+folder. The first is a simple suggestion generator that attaches itself to
+the text editor and create a suggestion list based on keywords in the selected
+language and all identifiers contained in the current document. This
+solution is very fast but lacks the ability to provide context specific
+suggestions. For that, a second solution is [available](lsp.md) which lets
+you connect to a language server.
+
+To use the simple solution, do the following:
+
+- Include the **TrieAutoComplete.cpp** and **TrieAutoComplete.h** files in your
+project (both are in the **extras** folder).
+- Create an instance of the **TrieAutoComplete** class.
+- Use the **Connect** and **Disconnect** methods to connect the object to the text editor.
+- Everything else is done automatically for you.
+
+So as a simple example:
+
+```c++
+TextEditor editor;
+TrieAutoComplete trieAutoComplete;
+
+trieAutoComplete.Connect(&editor);
+```
+
+For more information on the Language Server Protocol Bridge, its dependencies
+and its use, see the [documentation](lsp.md).
