@@ -154,8 +154,13 @@ library and configuration, including `IMGUI_USE_WCHAR32`.
 
 | CMake option | Default | Additional interface |
 | --- | --- | --- |
-| `ENABLE_GEOGRAM` | `OFF` | `__GEOGRAM__`: application callbacks for run/save/stop, completion, tooltips and text changes, word context and legacy cursor helpers from Bruno Levy's fork. No Geogram headers or libraries are required. |
+| `ENABLE_GEOGRAM` | `ON` | `__GEOGRAM__`: application callbacks for run/save/stop, completion, tooltips and text changes, word context and legacy cursor helpers from Bruno Levy's fork. No Geogram headers or libraries are required. |
 | `ENABLE_BALAZS` | `OFF` | `__BALAZS__`: `SetShowShortTabGlyphs()` selects a one-cell tab arrow instead of the full tab span, from BalazsJako's historical editor. |
+
+This integration branch merges the optional features into Bruno Levy's original
+`master` history and enables Geogram compatibility by default. Set
+`ENABLE_GEOGRAM=OFF` to build without that interface. For direct source inclusion,
+define `__GEOGRAM__` consistently for the editor and its consumers.
 
 The CMake target propagates the enabled definitions to consumers. Both switches
 can be enabled together. `BUILD_SHARED_LIBS` defaults to `ON`;

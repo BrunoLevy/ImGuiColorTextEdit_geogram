@@ -1,14 +1,19 @@
 # Standalone fork integration
 
-The base is goossens/ImGuiColorTextEdit master, commit
-`240a9126f2d04b07c720a8a63c1b2da56602e567`. The ALT `draft`
-(`3358b7507a572c3ed0e4d9d8fa000768df3470d4`) supplies the packaging and
-the intent to make Geogram extensions optional. Its unfinished port must not
-replace upstream's newer layout, autocomplete or modular language registry.
+This branch merges `feature/optional-fork-features` (`909d566`) into
+BrunoLevy/ImGuiColorTextEdit_geogram `master` (`062408b`). The original Bruno
+branch is the merge's first parent; its history is retained without rebasing.
+The incoming implementation includes goossens master `43a3759`, with its newer
+layout, autocomplete and modular language registry.
+
+Bruno's Emscripten cursor-member names (`is_main`, `main_index`), Apple macro
+guard and transaction-parameter warning fixes are retained in the modern core.
+ALT packaging is maintained on a separate branch.
 
 ## Geogram
 
-`ENABLE_GEOGRAM` defaults to `OFF`. When enabled, the public CMake target exports
+`ENABLE_GEOGRAM` defaults to `ON` on this Bruno integration branch (the general
+optional-features branch defaults to `OFF`). When enabled, the public CMake target exports
 `__GEOGRAM__` to consumers; the library and its consumers must agree on this
 option because it changes the public class layout.
 
