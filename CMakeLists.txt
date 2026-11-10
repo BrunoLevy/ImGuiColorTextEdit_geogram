@@ -5,7 +5,7 @@ include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
-option(ENABLE_GEOGRAM "Enable standalone Geogram compatibility features" OFF)
+option(ENABLE_GEOGRAM "Enable standalone Geogram compatibility features" ON)
 option(ENABLE_BALAZS "Enable unique features from BalazsJako's historical editor" OFF)
 option(BUILD_TESTING "Build editor regression tests" OFF)
 
